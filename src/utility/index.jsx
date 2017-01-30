@@ -1,12 +1,12 @@
 /* global API_HOST */
 import React from 'react';
 import { Link } from 'react-router';
-import heroes from 'dotaconstants/json/heroes.json';
-import items from 'dotaconstants/json/items.json';
-import patch from 'dotaconstants/json/patch.json';
-import region from 'dotaconstants/json/region.json';
-import itemIds from 'dotaconstants/json/item_ids.json';
-import xpLevel from 'dotaconstants/json/xp_level.json';
+import heroes from 'dotaconstants/build/heroes.json';
+import items from 'dotaconstants/build/items.json';
+import patch from 'dotaconstants/build/patch.json';
+import region from 'dotaconstants/build/region.json';
+import itemIds from 'dotaconstants/build/item_ids.json';
+import xpLevel from 'dotaconstants/build/xp_level.json';
 import styles from 'components/palette.css';
 import { TableLink } from 'components/Table';
 import {
@@ -180,7 +180,7 @@ export const percentile = (pct) => {
     };
   } else if (pct >= 0.4) {
     return {
-      color: 'darkBlue',
+      color: 'golden',
       grade: 'C',
     };
   } else if (pct >= 0.2) {
@@ -221,9 +221,7 @@ export const transformations = {
         parsed={row.version}
         image={heroes[row.hero_id] && API_HOST + heroes[row.hero_id].img}
         title={
-          row.rank !== undefined ?
-            <TableLink to={`/heroes/${row.hero_id}`}>{heroName}</TableLink>
-          : heroName
+          <TableLink to={`/heroes/${row.hero_id}`}>{heroName}</TableLink>
         }
         subtitle={getSubtitle(row)}
         heroName={heroName}
@@ -468,6 +466,8 @@ export const hsvToRgb = (h, s, v) => {
 
   return [r * 255, g * 255, b * 255];
 };
+
+export const bindWidth = (width, maxWidth) => Math.min(width, maxWidth);
 
 // Pretty much jQuery.getScript https://goo.gl/PBD7ml
 export const getScript = (url, callback) => {

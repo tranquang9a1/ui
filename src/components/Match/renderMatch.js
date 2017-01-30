@@ -4,7 +4,7 @@ import {
   getLevelFromXp,
   unpackPositionData,
 } from 'utility';
-import heroes from 'dotaconstants/json/heroes.json';
+import heroes from 'dotaconstants/build/heroes.json';
 import immutable from 'seamless-immutable';
 import _ from 'lodash/fp';
 import strings from 'lang';
@@ -240,6 +240,7 @@ function renderMatch(m) {
       newPlayer.purchase_dust = player.purchase.dust;
       newPlayer.purchase_gem = player.purchase.gem;
     }
+    newPlayer.buybacks = (player.buyback_log || []).length;
     return newPlayer;
   });
 

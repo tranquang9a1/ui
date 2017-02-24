@@ -27,6 +27,7 @@ import itemData from 'dotaconstants/build/items.json';
 import {
   getProPlayers,
   getLeagues,
+  getTeams,
 }
 from 'actions';
 import {
@@ -38,6 +39,7 @@ import util from 'util';
 import querystring from 'querystring';
 import queryTemplate from './queryTemplate';
 import ExplorerFormField from './ExplorerFormField';
+import styles from './Explorer.css';
 
 function jsonResponse(response) {
   return response.json();
@@ -50,17 +52,15 @@ function getItemSuffix(itemKey) {
 // TODO bans
 // TODO hero combos
 // TODO lane positions
-// TODO helplink
 // TODO num wards placed?
 // TODO num roshans killed?
+// TODO num matches played by team?
 // TODO item build rates?
-// TODO group by + time data should be formatted
-// TODO team filtering (by current team or team that played in match?)
 // TODO graphing buttons (pie, timeseries, bar)
+// TODO group by + time data should be formatted
 const player = {
   text: strings.explorer_player,
-  value: 'notable_players.name',
-  alias: 'playername',
+  value: 'notable_players.account_id',
 };
 const hero = {
   text: strings.th_hero_id,
@@ -231,6 +231,9 @@ const fields = {
       text: strings.th_result,
       value: '((player_matches.player_slot < 128) = matches.radiant_win)',
       alias: 'win',
+    }, {
+      text: strings.explorer_team,
+      value: 'teams.name',
     },
   ],
   patch: patchData.reverse().map(patch => ({
@@ -251,21 +254,31 @@ const fields = {
   })),
   side: [{ text: strings.general_radiant, value: true }, { text: strings.general_dire, value: false }],
   result: [{ text: strings.td_win, value: true }, { text: strings.td_loss, value: false }],
+  /*
+  lanePos: Object.keys(strings).filter(str => str.indexOf('lane_pos_') === 0).map(str => {
+    const lanePosId = Number(str.substring('lane_pos_'.length));
+    return { text: strings[str], value: lanePosId };
+  }),
+  */
 };
 
 class Explorer extends React.Component {
   constructor() {
     super();
     let savedBuilderState = {};
+    let savedSqlState = '';
     try {
-      const urlBuilderState = querystring.parse(window.location.search.substring(1));
-      savedBuilderState = JSON.parse(urlBuilderState.builder);
+      const urlState = querystring.parse(window.location.search.substring(1));
+      savedSqlState = urlState.sql;
+      if (urlState.builder) {
+        savedBuilderState = JSON.parse(urlState.builder);
+      }
     } catch (e) {
       console.error(e);
     }
     this.state = {
       loadingEditor: true,
-      showEditor: false,
+      showEditor: Boolean(savedSqlState),
       querying: false,
       result: {},
       builder: savedBuilderState,
@@ -281,6 +294,7 @@ class Explorer extends React.Component {
   componentDidMount() {
     this.props.dispatchProPlayers();
     this.props.dispatchLeagues();
+    this.props.dispatchTeams();
     getScript('https://cdnjs.cloudflare.com/ajax/libs/ace/1.2.5/ace.js', this.instantiateEditor);
   }
   getQueryString() {
@@ -324,7 +338,7 @@ class Explorer extends React.Component {
     });
     const queryString = this.getQueryString();
     // Only serialize the builder state to window history
-    window.history.pushState('', '', `?builder=${encodeURIComponent(JSON.stringify(this.state.builder))}`);
+    window.history.pushState('', '', this.state.showEditor ? queryString : `?builder=${encodeURIComponent(JSON.stringify(this.state.builder))}`);
     return fetch(`${API_HOST}/api/explorer${queryString}`).then(jsonResponse).then(this.handleResponse);
   }
   handleJson() {
@@ -350,14 +364,22 @@ class Explorer extends React.Component {
       text: league.name,
       value: league.leagueid,
     }));
+    const teams = this.props.teams.map(team => ({
+      text: team.name,
+      value: team.team_id,
+    }));
     const proPlayerMapping = {};
     proPlayers.forEach((player) => {
-      proPlayerMapping[player.text] = player.value;
+      proPlayerMapping[player.value] = player.text;
+    });
+    const teamMapping = {};
+    teams.forEach((team) => {
+      teamMapping[team.value] = team.text;
     });
     return (<div>
       <Helmet title={strings.title_explorer} />
       <Heading title={strings.explorer_title} subtitle={strings.explorer_description} />
-      <div>
+      <div className={styles.formGroup}>
         <ExplorerFormField label={strings.explorer_select} dataSource={fields.select} builderField="select" builderContext={this} />
         <ExplorerFormField label={strings.explorer_group_by} dataSource={fields.group} builderField="group" builderContext={this} />
         <ExplorerFormField label={strings.explorer_hero} dataSource={fields.hero} builderField="hero" builderContext={this} />
@@ -373,6 +395,10 @@ class Explorer extends React.Component {
         <ExplorerFormField label={strings.explorer_duration} dataSource={fields.duration} builderField="duration" builderContext={this} />
         <ExplorerFormField label={strings.explorer_side} dataSource={fields.side} builderField="side" builderContext={this} />
         <ExplorerFormField label={strings.th_result} dataSource={fields.result} builderField="result" builderContext={this} />
+        <ExplorerFormField label={strings.explorer_team} dataSource={teams} builderField="team" builderContext={this} />
+        <ExplorerFormField label={strings.explorer_min_date} builderField="minDate" builderContext={this} isDateField />
+        <ExplorerFormField label={strings.explorer_max_date} builderField="maxDate" builderContext={this} isDateField />
+        {/* <ExplorerFormField label={strings.explorer_lane_pos} dataSource={fields.lanePos} builderField="lanePos" builderContext={this} />*/}
       </div>
       <div style={{ display: this.state.showEditor ? 'block' : 'none' }}>
         {this.state.loadingEditor && <Spinner />}
@@ -412,7 +438,7 @@ class Explorer extends React.Component {
             displayFn: (row, col, field) => {
               if (column.name === 'match_id') {
                 return <Link to={`/matches/${field}`}>{field}</Link>;
-              } else if (column.name === 'hero_id') {
+              } else if (column.name.indexOf('hero_id') === 0) {
                 return transformations.hero_id(row, col, field);
               } else if (column.name === 'winrate') {
                 return (field >= 0 && field <= 1 ? <TablePercent
@@ -422,12 +448,16 @@ class Explorer extends React.Component {
                 return strings[`rune_${field}`];
               } else if (column.name === 'item_name') {
                 return itemData[field] ? itemData[field].dname : field;
-              } else if (column.name === 'playername') {
-                return <Link to={`/players/${proPlayerMapping[field]}`}>{field}</Link>;
+              } else if (column.name === 'account_id') {
+                return <Link to={`/players/${field}`}>{proPlayerMapping[field] || field}</Link>;
+              } else if (column.name === 'team_id') {
+                return teamMapping[field] || field;
               } else if (column.name === 'time') {
                 return formatSeconds(field);
               } else if (column.name === 'inflictor') {
                 return <span>{inflictorWithValue(field)} {field}</span>;
+              } else if (column.name === 'win') {
+                return <span className={field ? styles.textSuccess : styles.textDanger}>{field ? strings.td_win : strings.td_loss}</span>;
               }
               return typeof field === 'string' ? field : JSON.stringify(field);
             },
@@ -443,11 +473,13 @@ class Explorer extends React.Component {
 const mapStateToProps = state => ({
   proPlayers: state.app.proPlayers.list,
   leagues: state.app.leagues.list,
+  teams: state.app.teams.list,
 });
 
 const mapDispatchToProps = dispatch => ({
   dispatchProPlayers: () => dispatch(getProPlayers()),
   dispatchLeagues: () => dispatch(getLeagues()),
+  dispatchTeams: () => dispatch(getTeams()),
 });
 
 export default connect(mapStateToProps, mapDispatchToProps)(Explorer);

@@ -1,6 +1,6 @@
 const queryTemplate = ({
   select,
-  group = select && select.groupValue ? { value: select.groupKey, alias: select.alias } : null,
+  group = select && select.groupValue ? { value: select.groupKey, groupKeySelect: select.groupKeySelect, alias: select.alias } : null,
   patch,
   hero,
   player,
@@ -15,11 +15,14 @@ const queryTemplate = ({
   maxDate,
 }) => `SELECT
 ${(group) ?
-[`${group.value} ${group.alias || ''}`,
+[`${group.groupKeySelect || group.value} ${group.alias || ''}`,
   `round(sum(${(select || {}).groupValue || (select || {}).value || 1})::numeric/count(distinct matches.match_id), 2) avg`,
   'count(distinct matches.match_id) count',
+  'sum(case when (player_matches.player_slot < 128) = radiant_win then 1 else 0 end)::float/count(1) winrate',
   `sum(${(select || {}).groupValue || (select || {}).value || 1}) sum`,
-  (select || {}).groupValue ? '' : 'sum(case when (player_matches.player_slot < 128) = radiant_win then 1 else 0 end)::float/count(1) winrate',
+  `min(${(select || {}).groupValue || (select || {}).value || 1}) min`,
+  `max(${(select || {}).groupValue || (select || {}).value || 1}) max`,
+  `round(stddev(${(select || {}).groupValue || (select || {}).value || 1}), 2) stddev`,
 ].filter(Boolean).join(',\n')
 :
 [select ? `${select.value} ${select.alias || ''}` : '',
@@ -58,12 +61,12 @@ ${lanePos ? `AND lane_pos = ${lanePos.value}` : ''}
 ${minDate ? `AND start_time >= ${Math.round(new Date(minDate.value) / 1000)}` : ''}
 ${maxDate ? `AND start_time <= ${Math.round(new Date(maxDate.value) / 1000)}` : ''}
 ${group ? `GROUP BY ${group.value}` : ''}
-${group ? 'HAVING count(distinct matches.match_id) > 1' : ''}
+${group ? 'HAVING count(distinct matches.match_id) > 0' : ''}
 ORDER BY ${
 [`${group ? 'avg' : (select && select.value) || 'matches.match_id'} ${(select && select.order) || 'DESC'}`,
   group ? 'count DESC' : '',
 ].filter(Boolean).join(',')}
 NULLS LAST
-LIMIT 150`;
+LIMIT 150`.replace(/\n{2,}/g, '\n');
 
 export default queryTemplate;

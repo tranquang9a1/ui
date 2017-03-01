@@ -118,6 +118,7 @@ const fields = {
     value: 'duration',
     alias: 'as time',
     key: 'duration',
+    formatSeconds: true,
   }, { ...jsonSelect,
     text: strings.heading_item_purchased,
     alias: 'item_name',
@@ -162,7 +163,7 @@ const fields = {
   }),
     killSelect({
       text: strings.heading_roshan,
-      unitLey: 'npc_dota_roshan',
+      unitKey: 'npc_dota_roshan',
     }),
     killSelect({
       text: strings.heading_tower,

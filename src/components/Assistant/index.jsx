@@ -174,11 +174,9 @@ const responses = [
 //The Shanghai Major.
 //RTZ Sven gets sprouted
 ];
-const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition || window.mozSpeechRecognition || window.msSpeechRecognition)();
-recognition.lang = 'en-US';
-recognition.interimResults = false;
-recognition.maxAlternatives = 5;
-const synth = window.speechSynthesis;
+
+let recognition;
+let synth;
 
 class Assistant extends React.Component {
   constructor() {
@@ -186,6 +184,11 @@ class Assistant extends React.Component {
     this.state = {};
   }
   componentDidMount() {
+    recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition || window.mozSpeechRecognition || window.msSpeechRecognition)();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 5;
+    synth = window.speechSynthesis;
     recognition.onresult = function (event) {
       this.setState({ ...this.state, recognizedSpeech: event.results[0][0].transcript });
     }.bind(this);
